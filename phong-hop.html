@@ -370,12 +370,16 @@ async function loadBookings() {
 }
 
 function normalizeBooking(item) {
+  // Lấy tên phòng — có thể là object {Value: "..."} hoặc string
+  const roomRaw = item["T_x00ea_nph_x00f2_ng"] || item["room"] || item["Ten_x0020_ph_x00f2_ng"] || "";
+  const room = (roomRaw && typeof roomRaw === 'object') ? roomRaw.Value : roomRaw;
+
   return {
-    room:  item["room"]  || item["Ten_x0020_ph_x00f2_ng"] || "",
-    title: item["title"] || item["Title"] || "",
-    by:    item["by"]    || item["Ng_x01b0_x1eddi__x0111__t"] || "",
-    start: item["start"] || item["Th_x1eddi__x0111_i_x1ec3_m_x0020_b"] || "",
-    end:   item["end"]   || item["Th_x1eddi__x0111_i_x1ec3_m_x0020_k"] || "",
+    room:  room,
+    title: item["Ti_x00ea_u_x0111__x1ec1_cu_x1ed9"] || item["title"] || item["Title"] || "",
+    by:    item["Ng_x01b0__x1edd_i_x0111__x1eb7_t"] || item["by"]   || "",
+    start: item["Th_x1edd_igianb_x1eaf_t_x0111__x"] || item["start"] || "",
+    end:   item["Th_x1edd_igiank_x1ebf_tth_x00fa_"] || item["end"]   || "",
   };
 }
 
