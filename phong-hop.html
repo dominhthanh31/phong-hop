@@ -336,12 +336,9 @@ async function loadBookings() {
   document.getElementById('timeline').innerHTML = '<div class="loading">⏳ Đang tải dữ liệu...</div>';
 
   try {
-    // Đọc file data.json từ SharePoint
-    const url = `${SHAREPOINT_SITE}/_api/web/GetFileByServerRelativeUrl('${DATA_JSON_PATH}')/$value`;
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-      credentials: 'include'
-    });
+    // Đọc file data.json từ GitHub (không bị CORS)
+    const url = `https://raw.githubusercontent.com/dominhthanh31/phong-hop/main/data.json?t=${Date.now()}`;
+    const res = await fetch(url);
 
     if (!res.ok) throw new Error('Lỗi kết nối SharePoint: ' + res.status);
     
