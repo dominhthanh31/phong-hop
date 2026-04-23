@@ -320,16 +320,16 @@ function getWidth(s, e) { return ((e - s) / 11) * 100; }
 function parseHour(dtStr) {
   if (!dtStr) return null;
   const d = new Date(dtStr);
-  // Convert UTC to local time (UTC+7)
-  const local = new Date(d.getTime() + 7 * 60 * 60 * 1000);
-  return local.getUTCHours() + local.getUTCMinutes() / 60;
+  return d.getHours() + d.getMinutes() / 60;
 }
 
 function getDateStr(dtStr) {
   if (!dtStr) return null;
   const d = new Date(dtStr);
-  const local = new Date(d.getTime() + 7 * 60 * 60 * 1000);
-  return local.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 async function loadBookings() {
