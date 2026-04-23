@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lịch Phòng Họp</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    background: #f8fafc;
+    min-height: 100vh;
+    padding: 24px;
+    color: #1e293b;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  h1 { font-size: 22px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
+  h1 span { font-size: 13px; font-weight: 400; color: #64748b; display: block; margin-top: 2px; }
+
+  #date-picker {
+    padding: 8px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #334155;
+    background: white;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .status-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 13px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .status-pill.free { background: #f0fdf4; border: 1.5px solid #86efac; color: #15803d; }
+  .status-pill.busy { background: #fff1f2; border: 1.5px solid #fca5a5; color: #dc2626; }
+
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.free { background: #22c55e; box-shadow: 0 0 0 2px #bbf7d0; }
+  .dot.busy { background: #ef4444; box-shadow: 0 0 0 2px #fecaca; }
+
+  .timeline-wrap {
+    background: white;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .time-header {
+    display: flex;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+  }
+
+  .room-label-header {
+    width: 150px;
+    min-width: 150px;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-right: 1px solid #f1f5f9;
+  }
+
+  .hours-header {
+    flex: 1;
+    display: flex;
+  }
+
+  .hour-cell {
+    flex: 1;
+    padding: 10px 0 8px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    border-right: 1px solid #f1f5f9;
+  }
+
+  .hour-cell.current { color: #1a56db; }
+
+  .room-row {
+    display: flex;
+    border-bottom: 1px solid #f1f5f9;
+    min-height: 62px;
+  }
+
+  .room-row:last-child { border-bottom: none; }
+
+  .room-label {
+    width: 150px;
+    min-width: 150px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    background: #fafafa;
+    border-right: 1px solid #f1f5f9;
+  }
+
+  .room-name { font-size: 13px; font-weight: 600; color: #334155; }
+  .room-status { font-size: 11px; font-weight: 500; margin-top: 2px; }
+  .room-status.free { color: #22c55e; }
+  .room-status.busy { color: #ef4444; }
+
+  .timeline-row {
+    flex: 1;
+    position: relative;
+    padding: 8px 0;
+  }
+
+  .grid-lines {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    pointer-events: none;
+  }
+
+  .grid-line { flex: 1; border-right: 1px solid #f8fafc; }
+
+  .now-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: #1a56db;
+    opacity: 0.35;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .booking-block {
+    position: absolute;
+    top: 8px; bottom: 8px;
+    border-radius: 8px;
+    padding: 4px 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    z-index: 10;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+
+  .booking-block:hover {
+    transform: scaleY(1.06);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 20;
+  }
+
+  .booking-title { font-size: 12px; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .booking-time { font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 1px; }
+
+  .empty-row {
+    position: absolute;
+    inset: 8px 0;
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    color: #cbd5e1;
+    font-size: 12px;
+    font-style: italic;
+    pointer-events: none;
+  }
+
+  .tooltip {
+    position: fixed;
+    background: #1e293b;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    max-width: 220px;
+    display: none;
+  }
+
+  .tooltip-title { font-weight: 700; margin-bottom: 4px; }
+  .tooltip-info { color: #94a3b8; font-size: 12px; margin-top: 2px; }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: #94a3b8;
+    font-size: 14px;
+  }
+
+  .refresh-btn {
+    padding: 7px 14px;
+    background: #1a56db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .refresh-btn:hover { background: #1e40af; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🏢 Lịch Phòng Họp <span>Xem trạng thái phòng họp theo ngày</span></h1>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <input type="date" id="date-picker">
+    <button class="refresh-btn" onclick="loadBookings()">↻ Làm mới</button>
+  </div>
+</div>
+
+<div class="status-bar" id="status-bar"></div>
+
+<div class="timeline-wrap" id="timeline">
+  <div class="loading">⏳ Đang tải dữ liệu...</div>
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div style="width:2px;height:16px;background:#1a56db;opacity:0.4;border-radius:1px"></div>
+    Giờ hiện tại
+  </div>
+  <div class="legend-item">
+    <div style="width:16px;height:12px;background:#1a56db;border-radius:3px"></div>
+    Đã được đặt
+  </div>
+  <div class="legend-item" style="font-style:italic;color:#94a3b8">
+    💡 Hover vào lịch để xem chi tiết
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// =============================================
+// ⚙️ CẤU HÌNH — CHỈ SỬA PHẦN NÀY
+// =============================================
+const SHAREPOINT_SITE = "https://capitalpackaging.sharepoint.com/sites/BaoBTh";
+const LIST_NAME = "Room_Booking";
+const ROOMS = ["Phòng họp 1", "Phòng họp 2", "Phòng họp 3", "Phòng họp 4"];
+// =============================================
+
+const HOURS = Array.from({length: 12}, (_, i) => i + 7); // 7h-18h
+const COLORS = ["#1a56db","#0e9f6e","#d97706","#7c3aed","#dc2626","#0891b2","#be185d","#047857"];
+
+// Set today's date
+const dateInput = document.getElementById('date-picker');
+dateInput.value = new Date().toISOString().split('T')[0];
+dateInput.addEventListener('change', loadBookings);
+
+function getNow() {
+  const n = new Date();
+  return n.getHours() + n.getMinutes() / 60;
+}
+
+function formatHour(h) {
+  return String(h).padStart(2,'0') + ':00';
+}
+
+function getLeft(h) { return ((h - 7) / 11) * 100; }
+function getWidth(s, e) { return ((e - s) / 11) * 100; }
+
+function parseHour(dtStr) {
+  if (!dtStr) return null;
+  const d = new Date(dtStr);
+  return d.getHours() + d.getMinutes() / 60;
+}
+
+async function loadBookings() {
+  const selectedDate = dateInput.value;
+  const startOfDay = new Date(selectedDate + 'T00:00:00Z').toISOString();
+  const endOfDay   = new Date(selectedDate + 'T23:59:59Z').toISOString();
+
+  const url = `${SHAREPOINT_SITE}/_api/web/lists/getbytitle('${LIST_NAME}')/items` +
+    `?$select=Title,Ten_x0020_ph_x00f2_ng,Ng_x01b0_x1eddi__x0111__t,Th_x1eddi__x0111_i_x1ec3_m_x0020_b,Th_x1eddi__x0111_i_x1ec3_m_x0020_k,Tr_x1ea1_ng_x0020_th_x00e1_i` +
+    `&$filter=Tr_x1ea1_ng_x0020_th_x00e1_i eq 'Đang hoạt động'` +
+    ` and Th_x1eddi__x0111_i_x1ec3_m_x0020_b ge '${startOfDay}'` +
+    ` and Th_x1eddi__x0111_i_x1ec3_m_x0020_b le '${endOfDay}'` +
+    `&$top=500`;
+
+  document.getElementById('timeline').innerHTML = '<div class="loading">⏳ Đang tải dữ liệu...</div>';
+
+  try {
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json;odata=nometadata' },
+      credentials: 'include'
+    });
+
+    if (!res.ok) throw new Error('Lỗi kết nối SharePoint');
+    const data = await res.json();
+    renderTimeline(data.value || []);
+  } catch (err) {
+    // Fallback: dùng mock data khi chạy ngoài SharePoint
+    console.warn('Không kết nối được SharePoint, dùng mock data:', err);
+    renderTimeline(getMockData(selectedDate));
+  }
+}
+
+function getMockData(date) {
+  return [
+    { Ten_phong: "Phòng họp 1", Title: "Họp Q2 Review", Nguoi_dat: "Nguyễn Văn A", Thoi_gian_bat_dau: date + "T09:00:00Z", Thoi_gian_ket_thuc: date + "T11:00:00Z" },
+    { Ten_phong: "Phòng họp 1", Title: "Training", Nguoi_dat: "Trần Thị B", Thoi_gian_bat_dau: date + "T14:00:00Z", Thoi_gian_ket_thuc: date + "T16:00:00Z" },
+    { Ten_phong: "Phòng họp 2", Title: "Gặp khách hàng", Nguoi_dat: "Lê Văn C", Thoi_gian_bat_dau: date + "T08:00:00Z", Thoi_gian_ket_thuc: date + "T10:00:00Z" },
+    { Ten_phong: "Phòng họp 3", Title: "Board meeting", Nguoi_dat: "Hoàng Văn E", Thoi_gian_bat_dau: date + "T10:00:00Z", Thoi_gian_ket_thuc: date + "T12:00:00Z" },
+  ];
+}
+
+function normalizeBooking(item) {
+  // Handle both real SharePoint internal names and mock data keys
+  return {
+    room:  item["Ten_x0020_ph_x00f2_ng"]     || item["Ten_phong"]         || item["TenPhong"]         || "",
+    title: item["Title"]                                                                                 || "",
+    by:    item["Ng_x01b0_x1eddi__x0111__t"] || item["Nguoi_dat"]         || item["NguoiDat"]         || "",
+    start: item["Th_x1eddi__x0111_i_x1ec3_m_x0020_b"] || item["Thoi_gian_bat_dau"] || item["ThoiGianBatDau"] || "",
+    end:   item["Th_x1eddi__x0111_i_x1ec3_m_x0020_k"] || item["Thoi_gian_ket_thuc"]|| item["ThoiGianKetThuc"]|| "",
+  };
+}
+
+function renderTimeline(rawItems) {
+  const items = rawItems.map(normalizeBooking);
+  const now = getNow();
+  const today = new Date().toISOString().split('T')[0];
+  const isToday = dateInput.value === today;
+
+  // Status bar
+  const statusBar = document.getElementById('status-bar');
+  statusBar.innerHTML = ROOMS.map(room => {
+    const busy = items.some(b => b.room === room && parseHour(b.start) <= now && parseHour(b.end) > now);
+    return `<div class="status-pill ${busy?'busy':'free'}">
+      <div class="dot ${busy?'busy':'free'}"></div>
+      ${room}: ${busy ? 'Đang dùng' : 'Trống'}
+    </div>`;
+  }).join('');
+
+  // Timeline
+  let html = `
+    <div class="time-header">
+      <div class="room-label-header">Phòng</div>
+      <div class="hours-header">
+        ${HOURS.map(h => `<div class="hour-cell ${isToday && Math.floor(now)===h?'current':''}">${formatHour(h)}</div>`).join('')}
+      </div>
+    </div>`;
+
+  ROOMS.forEach((room, ri) => {
+    const roomItems = items.filter(b => b.room === room);
+    const busy = roomItems.some(b => parseHour(b.start) <= now && parseHour(b.end) > now);
+
+    html += `<div class="room-row">
+      <div class="room-label">
+        <div>
+          <div class="room-name">${room}</div>
+          <div class="room-status ${busy?'busy':'free'}">${busy?'● Đang dùng':'● Trống'}</div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <div class="grid-lines">${HOURS.map(()=>'<div class="grid-line"></div>').join('')}</div>
+        ${isToday && now >= 7 && now < 18 ? `<div class="now-line" style="left:${getLeft(now)}%"></div>` : ''}
+        ${roomItems.length === 0 ? '<div class="empty-row">Chưa có lịch</div>' : ''}
+        ${roomItems.map((b, bi) => {
+          const s = parseHour(b.start);
+          const e = parseHour(b.end);
+          if (!s || !e || s < 7 || e > 18) return '';
+          const color = COLORS[(ri * 3 + bi) % COLORS.length];
+          const data = encodeURIComponent(JSON.stringify({title: b.title, by: b.by, start: s, end: e}));
+          return `<div class="booking-block"
+            style="left:${getLeft(s)}%;width:${getWidth(s,e)}%;background:${color}"
+            data-info="${data}"
+            onmouseenter="showTooltip(event,this)"
+            onmouseleave="hideTooltip()">
+            <div class="booking-title">${b.title}</div>
+            <div class="booking-time">${formatHour(s)} – ${formatHour(e)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('timeline').innerHTML = html;
+}
+
+function showTooltip(e, el) {
+  const info = JSON.parse(decodeURIComponent(el.dataset.info));
+  const t = document.getElementById('tooltip');
+  t.innerHTML = `
+    <div class="tooltip-title">${info.title}</div>
+    <div class="tooltip-info">🕐 ${formatHour(info.start)} – ${formatHour(info.end)}</div>
+    <div class="tooltip-info">👤 ${info.by || 'Không rõ'}</div>`;
+  t.style.display = 'block';
+  t.style.left = (e.clientX + 12) + 'px';
+  t.style.top  = (e.clientY - 10) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+// Auto-refresh mỗi 2 phút
+loadBookings();
+setInterval(loadBookings, 120000);
+</script>
+</body>
+</html>
