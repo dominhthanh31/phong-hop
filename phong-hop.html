@@ -246,6 +246,13 @@
   }
 
   .refresh-btn:hover { background: #1e40af; }
+
+  .error-msg {
+    text-align: center;
+    padding: 40px;
+    color: #ef4444;
+    font-size: 14px;
+  }
 </style>
 </head>
 <body>
@@ -284,17 +291,16 @@
 
 <script>
 // =============================================
-// ⚙️ CẤU HÌNH — CHỈ SỬA PHẦN NÀY
+// ⚙️ CẤU HÌNH
 // =============================================
 const SHAREPOINT_SITE = "https://capitalpackaging.sharepoint.com/sites/BaoBTh";
-const LIST_NAME = "Room_Booking";
+const DATA_JSON_PATH = "/sites/BaoBTh/Shared%20Documents/%C4%90%E1%BA%B7t%20ph%C3%B2ng/data.json";
 const ROOMS = ["Phòng họp 1", "Phòng họp 2", "Phòng họp 3", "Phòng họp 4"];
 // =============================================
 
 const HOURS = Array.from({length: 12}, (_, i) => i + 7); // 7h-18h
 const COLORS = ["#1a56db","#0e9f6e","#d97706","#7c3aed","#dc2626","#0891b2","#be185d","#047857"];
 
-// Set today's date
 const dateInput = document.getElementById('date-picker');
 dateInput.value = new Date().toISOString().split('T')[0];
 dateInput.addEventListener('change', loadBookings);
@@ -305,7 +311,7 @@ function getNow() {
 }
 
 function formatHour(h) {
-  return String(h).padStart(2,'0') + ':00';
+  return String(Math.floor(h)).padStart(2,'0') + ':' + String(Math.round((h % 1) * 60)).padStart(2,'0');
 }
 
 function getLeft(h) { return ((h - 7) / 11) * 100; }
@@ -314,64 +320,75 @@ function getWidth(s, e) { return ((e - s) / 11) * 100; }
 function parseHour(dtStr) {
   if (!dtStr) return null;
   const d = new Date(dtStr);
-  return d.getHours() + d.getMinutes() / 60;
+  // Convert UTC to local time (UTC+7)
+  const local = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+  return local.getUTCHours() + local.getUTCMinutes() / 60;
+}
+
+function getDateStr(dtStr) {
+  if (!dtStr) return null;
+  const d = new Date(dtStr);
+  const local = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+  return local.toISOString().split('T')[0];
 }
 
 async function loadBookings() {
-  const selectedDate = dateInput.value;
-  const startOfDay = new Date(selectedDate + 'T00:00:00Z').toISOString();
-  const endOfDay   = new Date(selectedDate + 'T23:59:59Z').toISOString();
-
-  const url = `${SHAREPOINT_SITE}/_api/web/lists/getbytitle('${LIST_NAME}')/items` +
-    `?$select=Title,Ten_x0020_ph_x00f2_ng,Ng_x01b0_x1eddi__x0111__t,Th_x1eddi__x0111_i_x1ec3_m_x0020_b,Th_x1eddi__x0111_i_x1ec3_m_x0020_k,Tr_x1ea1_ng_x0020_th_x00e1_i` +
-    `&$filter=Tr_x1ea1_ng_x0020_th_x00e1_i eq 'Đang hoạt động'` +
-    ` and Th_x1eddi__x0111_i_x1ec3_m_x0020_b ge '${startOfDay}'` +
-    ` and Th_x1eddi__x0111_i_x1ec3_m_x0020_b le '${endOfDay}'` +
-    `&$top=500`;
-
   document.getElementById('timeline').innerHTML = '<div class="loading">⏳ Đang tải dữ liệu...</div>';
 
   try {
+    // Đọc file data.json từ SharePoint
+    const url = `${SHAREPOINT_SITE}/_api/web/GetFileByServerRelativeUrl('${DATA_JSON_PATH}')/$value`;
     const res = await fetch(url, {
-      headers: { 'Accept': 'application/json;odata=nometadata' },
+      headers: { 'Accept': 'application/json' },
       credentials: 'include'
     });
 
-    if (!res.ok) throw new Error('Lỗi kết nối SharePoint');
-    const data = await res.json();
-    renderTimeline(data.value || []);
+    if (!res.ok) throw new Error('Lỗi kết nối SharePoint: ' + res.status);
+    
+    const text = await res.text();
+    let items = [];
+    
+    try {
+      // Parse JSON — data.json có thể là string JSON hoặc array
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        items = parsed;
+      } else if (parsed.value) {
+        items = parsed.value;
+      }
+    } catch(e) {
+      throw new Error('Lỗi parse dữ liệu');
+    }
+
+    renderTimeline(items);
   } catch (err) {
-    // Fallback: dùng mock data khi chạy ngoài SharePoint
-    console.warn('Không kết nối được SharePoint, dùng mock data:', err);
-    renderTimeline(getMockData(selectedDate));
+    console.error('Lỗi:', err);
+    document.getElementById('timeline').innerHTML = 
+      `<div class="error-msg">❌ Không tải được dữ liệu.<br><small>${err.message}</small><br><br>
+       <button class="refresh-btn" onclick="loadBookings()">Thử lại</button></div>`;
   }
 }
 
-function getMockData(date) {
-  return [
-    { Ten_phong: "Phòng họp 1", Title: "Họp Q2 Review", Nguoi_dat: "Nguyễn Văn A", Thoi_gian_bat_dau: date + "T09:00:00Z", Thoi_gian_ket_thuc: date + "T11:00:00Z" },
-    { Ten_phong: "Phòng họp 1", Title: "Training", Nguoi_dat: "Trần Thị B", Thoi_gian_bat_dau: date + "T14:00:00Z", Thoi_gian_ket_thuc: date + "T16:00:00Z" },
-    { Ten_phong: "Phòng họp 2", Title: "Gặp khách hàng", Nguoi_dat: "Lê Văn C", Thoi_gian_bat_dau: date + "T08:00:00Z", Thoi_gian_ket_thuc: date + "T10:00:00Z" },
-    { Ten_phong: "Phòng họp 3", Title: "Board meeting", Nguoi_dat: "Hoàng Văn E", Thoi_gian_bat_dau: date + "T10:00:00Z", Thoi_gian_ket_thuc: date + "T12:00:00Z" },
-  ];
-}
-
 function normalizeBooking(item) {
-  // Handle both real SharePoint internal names and mock data keys
   return {
-    room:  item["Ten_x0020_ph_x00f2_ng"]     || item["Ten_phong"]         || item["TenPhong"]         || "",
-    title: item["Title"]                                                                                 || "",
-    by:    item["Ng_x01b0_x1eddi__x0111__t"] || item["Nguoi_dat"]         || item["NguoiDat"]         || "",
-    start: item["Th_x1eddi__x0111_i_x1ec3_m_x0020_b"] || item["Thoi_gian_bat_dau"] || item["ThoiGianBatDau"] || "",
-    end:   item["Th_x1eddi__x0111_i_x1ec3_m_x0020_k"] || item["Thoi_gian_ket_thuc"]|| item["ThoiGianKetThuc"]|| "",
+    room:  item["room"]  || item["Ten_x0020_ph_x00f2_ng"] || "",
+    title: item["title"] || item["Title"] || "",
+    by:    item["by"]    || item["Ng_x01b0_x1eddi__x0111__t"] || "",
+    start: item["start"] || item["Th_x1eddi__x0111_i_x1ec3_m_x0020_b"] || "",
+    end:   item["end"]   || item["Th_x1eddi__x0111_i_x1ec3_m_x0020_k"] || "",
   };
 }
 
 function renderTimeline(rawItems) {
-  const items = rawItems.map(normalizeBooking);
+  const selectedDate = dateInput.value;
+  const items = rawItems.map(normalizeBooking).filter(b => {
+    const d = getDateStr(b.start);
+    return d === selectedDate;
+  });
+
   const now = getNow();
   const today = new Date().toISOString().split('T')[0];
-  const isToday = dateInput.value === today;
+  const isToday = selectedDate === today;
 
   // Status bar
   const statusBar = document.getElementById('status-bar');
@@ -445,7 +462,6 @@ function hideTooltip() {
   document.getElementById('tooltip').style.display = 'none';
 }
 
-// Auto-refresh mỗi 2 phút
 loadBookings();
 setInterval(loadBookings, 120000);
 </script>
